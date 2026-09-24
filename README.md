@@ -3,6 +3,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-FF6F00.svg)](https://github.com/langchain-ai/langgraph)
 [![Model Context Protocol](https://img.shields.io/badge/Tools-MCP%20Standard-blue.svg)](https://modelcontextprotocol.io)
+[![CI](https://github.com/MSAIE2027too/HR-Agent_static/actions/workflows/ci.yml/badge.svg)](https://github.com/MSAIE2027too/HR-Agent_static/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 An autonomous, production-grade enterprise agent designed for complex workplace policy reasoning and non-destructive HR workflow execution. Built to fulfill all criteria of the **Quantic Master of Science in AI for Engineering (MSAIE) Project Specification** aiming at a **Level 5 (Outstanding)** standard.

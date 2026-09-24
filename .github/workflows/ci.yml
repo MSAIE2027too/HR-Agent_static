@@ -1,28 +1,84 @@
-name: ci
-on: [push, pull_request]
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    name: Test & Validate
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: python -c "import app.main; print('start ok')"
-      - run: test -f README.md -a -f design-and-evaluation.md -a -f ai-tooling.md -a -f deployed.md && echo "contract 4-md at ROOT ok"
-      - run: python3 mock_data/build_mock_corpus.py && python3 -c "from pathlib import Path; exts={p.suffix.lower() for p in Path('mock_data').glob('*') if p.suffix}; print(sorted(exts)); assert len(exts)>=3, exts"
-      - run: python3 -c "from pathlib import Path; from app.ingest import ingest_file; n=len(ingest_file(Path('policy_docs/pto-policy.pdf'))); print('pdf chunks', n); assert n>0"
-      - run: pytest tests/ -vv
-      - run: pytest tests/test_mcp_discovery.py -vv
+          cache: "pip"
+
+      - name: Upgrade pip and install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify deliverables contract (4 Markdown files at root)
+        run: |
+          test -f README.md -a -f design-and-evaluation.md -a -f ai-tooling.md -a -f deployed.md && echo "All required root documentation deliverables present."
+
+      - name: Verify FastAPI application import
+        run: |
+          python3 -c "import app.main; print('FastAPI app import OK')"
+
+      - name: Build and verify mock multi-format corpus
+        run: |
+          python3 mock_data/build_mock_corpus.py
+          python3 -c "from pathlib import Path; exts={p.suffix.lower() for p in Path('mock_data').glob('*') if p.suffix}; print('Mock formats:', sorted(exts)); assert len(exts)>=3, exts"
+
+      - name: Verify PDF ingestion parser
+        run: |
+          python3 -c "from pathlib import Path; from app.ingest import ingest_file; n=len(ingest_file(Path('policy_docs/pto-policy.pdf'))); print('Ingested PDF chunks:', n); assert n>0"
+
+      - name: Run Pytest test suite (18 tests)
+        run: |
+          pytest tests/ -vv --durations=10
+
+      - name: Run standalone MCP discovery gate test
+        run: |
+          pytest tests/test_mcp_discovery.py -vv
+
+      - name: Run RAG retrieval ablation benchmark (k=3 vs k=5)
+        run: |
+          python3 evaluation/run_eval.py --eval-set evaluation/eval_set.jsonl --ablation-k 3,5
+
+      - name: Run evaluation benchmark harness
+        run: |
+          python3 evaluation/run_eval.py --eval-set evaluation/eval_set.jsonl
+
   deploy:
+    name: Deploy to Render
     needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - run: |
+      - name: Trigger Render Deploy Hook
+        run: |
           if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
-            echo "RENDER_DEPLOY_HOOK_URL not set; skipping deploy (see deployed.md)"
+            echo "RENDER_DEPLOY_HOOK_URL secret not configured; skipping automatic Render trigger (see deployed.md)."
           else
+            echo "Triggering Render deployment..."
             curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
           fi
