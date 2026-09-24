@@ -1,0 +1,28 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -c "import app.main; print('start ok')"
+      - run: test -f README.md -a -f design-and-evaluation.md -a -f ai-tooling.md -a -f deployed.md && echo "contract 4-md at ROOT ok"
+      - run: python3 mock_data/build_mock_corpus.py && python3 -c "from pathlib import Path; exts={p.suffix.lower() for p in Path('mock_data').glob('*') if p.suffix}; print(sorted(exts)); assert len(exts)>=3, exts"
+      - run: python3 -c "from pathlib import Path; from app.ingest import ingest_file; n=len(ingest_file(Path('policy_docs/pto-policy.pdf'))); print('pdf chunks', n); assert n>0"
+      - run: pytest tests/ -vv
+      - run: pytest tests/test_mcp_discovery.py -vv
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL not set; skipping deploy (see deployed.md)"
+          else
+            curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          fi

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: hr-agent-static
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENROUTER_MODEL
+        value: openrouter/free
+      - key: MCP_TRANSPORT
+        value: in-process
+      - key: OPENROUTER_API_KEY
+        sync: false
